@@ -4,6 +4,8 @@ Minimal [Ralph Wiggum Loop](https://ghuntley.com/loop/) for [fish shell](https:/
 
 Loop [Claude Code](https://docs.anthropic.com/en/docs/claude-code) until the task is done. Runs `claude --dangerously-skip-permissions` repeatedly, checking each round's output for a `DONE` signal. Supports per-round timeouts, a configurable CLI command, and graceful cancellation via pidfile.
 
+I use this with skills that maintain their own state machines and output `<PROMPT>DONE</PROMPT>` when they reach a terminal state. If you don't have a skill like that, ask Claude to write you one.
+
 ## Installation
 
 With [Fisher](https://github.com/jorgebucaran/fisher):
