@@ -1,0 +1,109 @@
+.\" generated with Ronn/v0.7.3
+.\" http://github.com/rtomayko/ronn/tree/0.7.3
+.
+.TH "RALPHISH" "1" "March 2026" "" ""
+.
+.SH "NAME"
+\fBralphish\fR \- loop a CLI command until DONE
+.
+.SH "SYNOPSIS"
+\fBralphish\fR [\fB\-t\fR|\fB\-\-timeout\fR \fIminutes\fR] [\fB\-c\fR|\fB\-\-cmd\fR \fIcommand\fR] \fIprompt\fR
+.
+.SH "DESCRIPTION"
+\fBralphish\fR repeatedly runs a CLI command with the given prompt until the output contains \fB<PROMPT>DONE</PROMPT>\fR, indicating the task is complete\.
+.
+.P
+Each iteration (round) runs \fB<command> \-p <prompt>\fR and checks the output\. If the round times out, the next round\'s prompt is appended with a note about the timeout\. Output from each round is displayed via \fBbat\fR\.
+.
+.P
+A pidfile is written to \fB/tmp/ralphish\.<pid>\.pid\fR on startup\. The loop continues as long as this file exists\.
+.
+.SH "OPTIONS"
+.
+.TP
+\fB\-t\fR, \fB\-\-timeout\fR \fIminutes\fR
+Per\-round timeout in minutes\. Defaults to 30\. Requires \fBgtimeout\fR or \fBtimeout\fR to be available on the system\.
+.
+.TP
+\fB\-c\fR, \fB\-\-cmd\fR \fIcommand\fR
+The CLI command to run each round\. Defaults to \fBclaude \-\-dangerously\-skip\-permissions\fR\.
+.
+.SH "STOPPING"
+.
+.IP "\(bu" 4
+\fBGraceful stop\fR: Remove the pidfile\. The current round finishes, then ralphish exits\.
+.
+.IP "" 4
+.
+.nf
+
+rm /tmp/ralphish\.<pid>\.pid
+.
+.fi
+.
+.IP "" 0
+
+.
+.IP "\(bu" 4
+\fBHard stop\fR: Kill the process directly\.
+.
+.IP "" 4
+.
+.nf
+
+kill <pid>
+.
+.fi
+.
+.IP "" 0
+
+.
+.IP "" 0
+.
+.P
+Both the pidfile path and PID are printed at startup\.
+.
+.SH "EXAMPLES"
+Run with default 30\-minute timeout:
+.
+.IP "" 4
+.
+.nf
+
+ralphish "Fix the failing tests in src/"
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Run with a 10\-minute per\-round timeout:
+.
+.IP "" 4
+.
+.nf
+
+ralphish \-t 10 "Refactor the auth module"
+.
+.fi
+.
+.IP "" 0
+.
+.SH "DEPENDENCIES"
+.
+.IP "\(bu" 4
+\fBclaude\fR \-\- Anthropic\'s Claude Code CLI (default command)
+.
+.IP "\(bu" 4
+\fBbat\fR \-\- used to render output
+.
+.IP "\(bu" 4
+\fBgtimeout\fR or \fBtimeout\fR \-\- optional, for per\-round timeouts
+.
+.IP "" 0
+.
+.SH "AUTHORS"
+Michael Katsevman
+.
+.SH "SEE ALSO"
+fish(1), claude(1)
