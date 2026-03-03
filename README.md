@@ -11,7 +11,7 @@ I use this with skills that maintain their own state machines and output `<PROMP
 With [Fisher](https://github.com/jorgebucaran/fisher):
 
 ```fish
-fisher install mike/ralphish
+fisher install anateus/ralphish
 ```
 
 ## Usage
