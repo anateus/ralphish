@@ -7,12 +7,16 @@ ralphish(1) -- loop a CLI command until DONE
 
 ## DESCRIPTION
 
-**ralphish** repeatedly runs a CLI command with the given prompt until the
-output contains `<PROMPT>DONE</PROMPT>`, indicating the task is complete.
+**ralphish** is a minimal Ralph Wiggum Loop for fish shell. It repeatedly
+runs a CLI command with the given prompt until the output contains
+`<PROMPT>DONE</PROMPT>`, indicating the task is complete.
 
 Each iteration (round) runs `<command> -p <prompt>` and checks the output.
 If the round times out, the next round's prompt is appended with a note about
 the timeout. Output from each round is displayed via `bat`.
+
+Designed for use with Claude Code skills that maintain their own state machines
+and output `<PROMPT>DONE</PROMPT>` when they reach a terminal state.
 
 A pidfile is written to `/tmp/ralphish.<pid>.pid` on startup. The loop
 continues as long as this file exists.
@@ -49,6 +53,10 @@ Run with default 30-minute timeout:
 Run with a 10-minute per-round timeout:
 
     ralphish -t 10 "Refactor the auth module"
+
+Use a custom CLI command:
+
+    ralphish -c "claude --model opus" "Fix the flaky test"
 
 ## DEPENDENCIES
 

@@ -1,4 +1,4 @@
-function ralphish --description "Loop yolo-claude until DONE"
+function ralphish --description "Ralph Wiggum Loop for Claude Code"
     argparse 't/timeout=' 'c/cmd=' -- $argv
     or return 1
 

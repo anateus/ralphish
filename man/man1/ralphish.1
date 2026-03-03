@@ -10,10 +10,13 @@
 \fBralphish\fR [\fB\-t\fR|\fB\-\-timeout\fR \fIminutes\fR] [\fB\-c\fR|\fB\-\-cmd\fR \fIcommand\fR] \fIprompt\fR
 .
 .SH "DESCRIPTION"
-\fBralphish\fR repeatedly runs a CLI command with the given prompt until the output contains \fB<PROMPT>DONE</PROMPT>\fR, indicating the task is complete\.
+\fBralphish\fR is a minimal Ralph Wiggum Loop for fish shell\. It repeatedly runs a CLI command with the given prompt until the output contains \fB<PROMPT>DONE</PROMPT>\fR, indicating the task is complete\.
 .
 .P
 Each iteration (round) runs \fB<command> \-p <prompt>\fR and checks the output\. If the round times out, the next round\'s prompt is appended with a note about the timeout\. Output from each round is displayed via \fBbat\fR\.
+.
+.P
+Designed for use with Claude Code skills that maintain their own state machines and output \fB<PROMPT>DONE</PROMPT>\fR when they reach a terminal state\.
 .
 .P
 A pidfile is written to \fB/tmp/ralphish\.<pid>\.pid\fR on startup\. The loop continues as long as this file exists\.
@@ -84,6 +87,19 @@ Run with a 10\-minute per\-round timeout:
 .nf
 
 ralphish \-t 10 "Refactor the auth module"
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Use a custom CLI command:
+.
+.IP "" 4
+.
+.nf
+
+ralphish \-c "claude \-\-model opus" "Fix the flaky test"
 .
 .fi
 .
