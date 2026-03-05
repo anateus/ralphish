@@ -71,7 +71,8 @@ function ralphish --description "Ralph Wiggum Loop for Claude Code"
         end
 
         if test -d "$project_dir"
-            set -l newest (find "$project_dir" -maxdepth 1 -name '*.jsonl' -newer "$ts_marker" 2>/dev/null | while read -l f; stat -f '%m %N' "$f"; end | sort -rn | head -1 | cut -d' ' -f2-)
+            set -l marker_time (stat -f '%m' "$ts_marker")
+            set -l newest (find "$project_dir" -maxdepth 1 -name '*.jsonl' 2>/dev/null | while read -l f; set -l bt (stat -f '%B' "$f"); test "$bt" -gt "$marker_time"; and echo "$bt $f"; end | sort -rn | head -1 | cut -d' ' -f2-)
             if test -n "$newest"
                 set session_id (basename "$newest" .jsonl)
                 set transcript_path "$newest"
