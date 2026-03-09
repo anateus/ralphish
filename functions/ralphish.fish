@@ -43,11 +43,31 @@ function ralphish --description "Ralph Wiggum Loop for Claude Code"
     set -l ts_marker /tmp/ralphish_ts_marker.$fish_pid
     touch "$ts_marker"
 
+    set -l status_file /tmp/ralphish_status.$fish_pid.json
+    touch "$status_file"
+
+    if test -n "$statusline_cmd"
+        begin
+            while test -f "$status_file"
+                sleep 180
+                test -f "$status_file"; or break
+                set -l file_age (math (date +%s) - (stat -f '%m' "$status_file" 2>/dev/null; or echo 0))
+                if test $file_age -ge (math "$timeout_mins * 60")
+                    break
+                end
+                cat "$status_file" 2>/dev/null | $statusline_cmd >/dev/null 2>&1
+            end
+            rm -f "$status_file"
+        end &
+        disown $last_pid 2>/dev/null
+    end
+
     set -l round 1
     set -l prompt_suffix ""
     while test -f $pidfile
         if test -n "$statusline_cmd"
             set -l status_json '{"workspace":{"current_dir":"'(pwd)'"},"model":{"display_name":"Ralph Loop"},"session_id":"'$session_id'","transcript_path":"'$transcript_path'"}'
+            echo "$status_json" > "$status_file"
             set -l status_output (echo $status_json | $statusline_cmd 2>/dev/null)
             if test -n "$status_output"
                 echo "  $status_output"
