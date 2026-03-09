@@ -92,11 +92,23 @@ function ralphish --description "Ralph Wiggum Loop for Claude Code"
 
         if test -d "$project_dir"
             set -l marker_time (stat -f '%m' "$ts_marker")
-            set -l newest (find "$project_dir" -maxdepth 1 -name '*.jsonl' 2>/dev/null | while read -l f; set -l bt (stat -f '%B' "$f"); test "$bt" -gt "$marker_time"; and echo "$bt $f"; end | sort -rn | head -1 | cut -d' ' -f2-)
-            if test -n "$newest"
-                set session_id (basename "$newest" .jsonl)
-                set transcript_path "$newest"
+            set -l candidates (find "$project_dir" -maxdepth 1 -name '*.jsonl' 2>/dev/null | while read -l f; set -l bt (stat -f '%B' "$f"); test "$bt" -gt "$marker_time"; and echo "$bt $f"; end | sort -rn)
+            set -l prompt_snippet (string sub -l 80 -- "$full_prompt")
+            for candidate in $candidates
+                set -l cfile (string replace -r '^[0-9]+ ' '' -- "$candidate")
+                set -l first_user_msg (head -5 "$cfile" | jq -r 'select(.type == "user") | .message.content | if type == "string" then . elif type == "array" then map(select(.type == "text") | .text) | join("") else "" end' 2>/dev/null | head -1)
+                if string match -rq -- (string escape --style=regex -- "$prompt_snippet") "$first_user_msg"
+                    set session_id (basename "$cfile" .jsonl)
+                    set transcript_path "$cfile"
+                    break
+                end
             end
+        end
+
+        if test -n "$statusline_cmd" -a -n "$session_id"
+            set -l status_json '{"workspace":{"current_dir":"'(pwd)'"},"model":{"display_name":"Ralph Loop"},"session_id":"'$session_id'","transcript_path":"'$transcript_path'"}'
+            echo "$status_json" > "$status_file"
+            echo $status_json | $statusline_cmd >/dev/null 2>&1
         end
 
         set -l output (string collect < $outfile)
