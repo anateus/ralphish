@@ -46,6 +46,40 @@ function ralphish --description "Ralph Wiggum Loop for Claude Code"
     set -l status_file /tmp/ralphish_status.$fish_pid.json
     touch "$status_file"
 
+    function _ralphish_detect_session --no-scope-shadowing
+        if test -d "$project_dir"
+            set -l marker_time (stat -f '%m' "$ts_marker")
+            set -l candidates (find "$project_dir" -maxdepth 1 -name '*.jsonl' 2>/dev/null | \
+                while read -l f
+                    set -l bt (stat -f '%B' "$f")
+                    test "$bt" -ge "$marker_time"
+                    and echo "$bt $f"
+                end | sort -rn)
+            for candidate in $candidates
+                set -l cfile (string replace -r '^[0-9]+ ' '' -- "$candidate")
+                set -l first_user_msg (head -5 "$cfile" | jq -r \
+                    'select(.type == "user") | .message.content |
+                    if type == "string" then .
+                    elif type == "array" then map(select(.type == "text") | .text) | join("")
+                    else "" end' 2>/dev/null)
+                if string match -rq -- (string escape --style=regex -- "$full_prompt") "$first_user_msg"
+                    set session_id (basename "$cfile" .jsonl)
+                    set transcript_path "$cfile"
+                    return 0
+                end
+            end
+        end
+        return 1
+    end
+
+    function _ralphish_update_status --no-scope-shadowing
+        if test -n "$statusline_cmd"
+            set -l sj '{"workspace":{"current_dir":"'(pwd)'"},"model":{"display_name":"Ralph Loop"},"session_id":"'$session_id'","transcript_path":"'$transcript_path'"}'
+            echo "$sj" > "$status_file"
+            echo $sj | $statusline_cmd >/dev/null 2>&1
+        end
+    end
+
     if test -n "$statusline_cmd"
         begin
             while test -f "$status_file"
@@ -66,9 +100,8 @@ function ralphish --description "Ralph Wiggum Loop for Claude Code"
     set -l prompt_suffix ""
     while test -f $pidfile
         if test -n "$statusline_cmd"
-            set -l status_json '{"workspace":{"current_dir":"'(pwd)'"},"model":{"display_name":"Ralph Loop"},"session_id":"'$session_id'","transcript_path":"'$transcript_path'"}'
-            echo "$status_json" > "$status_file"
-            set -l status_output (echo $status_json | $statusline_cmd 2>/dev/null)
+            _ralphish_update_status
+            set -l status_output (echo '{"workspace":{"current_dir":"'(pwd)'"},"model":{"display_name":"Ralph Loop"},"session_id":"'$session_id'","transcript_path":"'$transcript_path'"}' | $statusline_cmd 2>/dev/null)
             if test -n "$status_output"
                 echo "  $status_output"
             end
@@ -80,35 +113,40 @@ function ralphish --description "Ralph Wiggum Loop for Claude Code"
 
         touch "$ts_marker"
         set -l outfile (mktemp)
-        if test -n "$timeout_cmd"; and test $timeout_mins -gt 0
-            $timeout_cmd {$timeout_mins}m fish -c "$cli_cmd -p "(string escape -- $full_prompt) >$outfile 2>&1
-            if test $status -eq 124
-                echo "["(date -u +"%Y-%m-%dT%H:%M:%SZ")"] Round $round — Timed out after {$timeout_mins}m"
-                set prompt_suffix ". Previous run timed out after $timeout_mins minutes."
-            end
-        else
-            eval $cli_cmd -p $full_prompt >$outfile 2>&1
-        end
 
-        if test -d "$project_dir"
-            set -l marker_time (stat -f '%m' "$ts_marker")
-            set -l candidates (find "$project_dir" -maxdepth 1 -name '*.jsonl' 2>/dev/null | while read -l f; set -l bt (stat -f '%B' "$f"); test "$bt" -gt "$marker_time"; and echo "$bt $f"; end | sort -rn)
-            set -l prompt_snippet (string sub -l 80 -- "$full_prompt")
-            for candidate in $candidates
-                set -l cfile (string replace -r '^[0-9]+ ' '' -- "$candidate")
-                set -l first_user_msg (head -5 "$cfile" | jq -r 'select(.type == "user") | .message.content | if type == "string" then . elif type == "array" then map(select(.type == "text") | .text) | join("") else "" end' 2>/dev/null | head -1)
-                if string match -rq -- (string escape --style=regex -- "$prompt_snippet") "$first_user_msg"
-                    set session_id (basename "$cfile" .jsonl)
-                    set transcript_path "$cfile"
-                    break
+        if test -n "$timeout_cmd"; and test $timeout_mins -gt 0
+            $timeout_cmd {$timeout_mins}m fish -c "$cli_cmd -p "(string escape -- $full_prompt) >$outfile 2>&1 &
+        else
+            eval $cli_cmd -p $full_prompt >$outfile 2>&1 &
+        end
+        set -l claude_pid $last_pid
+
+        set -l session_detected false
+        while kill -0 $claude_pid 2>/dev/null
+            if not test -f $pidfile
+                kill $claude_pid 2>/dev/null
+                break
+            end
+            if test "$session_detected" = false
+                if _ralphish_detect_session
+                    set session_detected true
+                    _ralphish_update_status
                 end
             end
+            sleep 10
         end
 
-        if test -n "$statusline_cmd" -a -n "$session_id"
-            set -l status_json '{"workspace":{"current_dir":"'(pwd)'"},"model":{"display_name":"Ralph Loop"},"session_id":"'$session_id'","transcript_path":"'$transcript_path'"}'
-            echo "$status_json" > "$status_file"
-            echo $status_json | $statusline_cmd >/dev/null 2>&1
+        wait $claude_pid
+        set -l claude_exit $status
+
+        if test "$session_detected" = false
+            _ralphish_detect_session
+            and _ralphish_update_status
+        end
+
+        if test -n "$timeout_cmd"; and test $timeout_mins -gt 0; and test $claude_exit -eq 124
+            echo "["(date -u +"%Y-%m-%dT%H:%M:%SZ")"] Round $round — Timed out after {$timeout_mins}m"
+            set prompt_suffix ". Previous run timed out after $timeout_mins minutes."
         end
 
         set -l output (string collect < $outfile)
@@ -120,6 +158,7 @@ function ralphish --description "Ralph Wiggum Loop for Claude Code"
         if string match -q '*<PROMPT>DONE</PROMPT>*' -- $output
             echo "["(date -u +"%Y-%m-%dT%H:%M:%SZ")"] Done."
             rm -f $pidfile $ts_marker
+            functions -e _ralphish_detect_session _ralphish_update_status
             return 0
         end
 
@@ -129,5 +168,6 @@ function ralphish --description "Ralph Wiggum Loop for Claude Code"
 
     rm -f "$ts_marker"
     echo "["(date -u +"%Y-%m-%dT%H:%M:%SZ")"] Stopped (pidfile removed)."
+    functions -e _ralphish_detect_session _ralphish_update_status
     return 0
 end
