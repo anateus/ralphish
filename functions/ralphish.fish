@@ -21,7 +21,7 @@ function ralphish --description "Ralph Wiggum Loop for Claude Code"
     echo $fish_pid > $pidfile
 
     echo "["(date -u +"%Y-%m-%dT%H:%M:%SZ")"] ralphish started"
-    echo "  PID: $fish_pid | Timeout: {$timeout_mins}m per round"
+    echo "  PID: $fish_pid | Timeout: "$timeout_mins"m per round"
     echo "  Graceful stop: rm $pidfile"
     echo "  Hard stop:     kill $fish_pid"
     echo
@@ -68,6 +68,12 @@ function ralphish --description "Ralph Wiggum Loop for Claude Code"
                     return 0
                 end
             end
+            if test (count $candidates) -gt 0
+                set -l cfile (string replace -r '^[0-9]+ ' '' -- "$candidates[1]")
+                set session_id (basename "$cfile" .jsonl)
+                set transcript_path "$cfile"
+                return 0
+            end
         end
         return 1
     end
@@ -81,26 +87,26 @@ function ralphish --description "Ralph Wiggum Loop for Claude Code"
     end
 
     if test -n "$statusline_cmd"
-        begin
-            while test -f "$status_file"
+        set -l max_age (math "$timeout_mins * 60")
+        fish -c "
+            while test -f '$status_file'
                 sleep 180
-                test -f "$status_file"; or break
-                set -l file_age (math (date +%s) - (stat -f '%m' "$status_file" 2>/dev/null; or echo 0))
-                if test $file_age -ge (math "$timeout_mins * 60")
+                test -f '$status_file'; or break
+                set -l file_age (math (date +%s) - (stat -f '%m' '$status_file' 2>/dev/null; or echo 0))
+                if test \$file_age -ge $max_age
                     break
                 end
-                cat "$status_file" 2>/dev/null | $statusline_cmd >/dev/null 2>&1
+                cat '$status_file' 2>/dev/null | '$statusline_cmd' >/dev/null 2>&1
             end
-            rm -f "$status_file"
-        end &
+            rm -f '$status_file'
+        " &
         disown $last_pid 2>/dev/null
     end
 
     set -l round 1
     set -l prompt_suffix ""
     while test -f $pidfile
-        if test -n "$statusline_cmd"
-            _ralphish_update_status
+        if test -n "$statusline_cmd"; and test -n "$session_id"
             set -l status_output (echo '{"workspace":{"current_dir":"'(pwd)'"},"model":{"display_name":"Ralph Loop"},"session_id":"'$session_id'","transcript_path":"'$transcript_path'"}' | $statusline_cmd 2>/dev/null)
             if test -n "$status_output"
                 echo "  $status_output"
@@ -115,13 +121,14 @@ function ralphish --description "Ralph Wiggum Loop for Claude Code"
         set -l outfile (mktemp)
 
         if test -n "$timeout_cmd"; and test $timeout_mins -gt 0
-            $timeout_cmd {$timeout_mins}m fish -c "$cli_cmd -p "(string escape -- $full_prompt) >$outfile 2>&1 &
+            env -u CLAUDECODE -u CLAUDE_CODE_ENTRYPOINT $timeout_cmd {$timeout_mins}m fish -c "$cli_cmd -p "(string escape -- $full_prompt) >$outfile 2>&1 &
         else
-            eval $cli_cmd -p $full_prompt >$outfile 2>&1 &
+            env -u CLAUDECODE -u CLAUDE_CODE_ENTRYPOINT fish -c "$cli_cmd -p "(string escape -- $full_prompt) >$outfile 2>&1 &
         end
         set -l claude_pid $last_pid
 
         set -l session_detected false
+        set -l poll_interval 2
         while kill -0 $claude_pid 2>/dev/null
             if not test -f $pidfile
                 kill $claude_pid 2>/dev/null
@@ -130,18 +137,34 @@ function ralphish --description "Ralph Wiggum Loop for Claude Code"
             if test "$session_detected" = false
                 if _ralphish_detect_session
                     set session_detected true
+                    echo "["(date -u +"%Y-%m-%dT%H:%M:%SZ")"] Session: $session_id"
                     _ralphish_update_status
+                    set poll_interval 10
                 end
             end
-            sleep 10
+            sleep $poll_interval
         end
 
         wait $claude_pid
         set -l claude_exit $status
 
         if test "$session_detected" = false
-            _ralphish_detect_session
-            and _ralphish_update_status
+            if _ralphish_detect_session
+                echo "["(date -u +"%Y-%m-%dT%H:%M:%SZ")"] Session: $session_id"
+                _ralphish_update_status
+            end
+        end
+
+        if test -z "$session_id"
+            echo "["(date -u +"%Y-%m-%dT%H:%M:%SZ")"] Error: unable to detect session after round $round"
+            set -l output (string collect < $outfile)
+            if test -n "$output"
+                echo "Claude output:"
+                echo $output | bat --language=md --style=plain --paging=never
+            end
+            rm -f $pidfile $ts_marker $status_file $outfile
+            functions -e _ralphish_detect_session _ralphish_update_status
+            return 1
         end
 
         if test -n "$timeout_cmd"; and test $timeout_mins -gt 0; and test $claude_exit -eq 124
