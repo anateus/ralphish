@@ -121,9 +121,9 @@ function ralphish --description "Ralph Wiggum Loop for Claude Code"
         set -l outfile (mktemp)
 
         if test -n "$timeout_cmd"; and test $timeout_mins -gt 0
-            env -u CLAUDECODE -u CLAUDE_CODE_ENTRYPOINT $timeout_cmd {$timeout_mins}m fish -c "$cli_cmd -p "(string escape -- $full_prompt) >$outfile 2>&1 &
+            env -u CLAUDECODE -u CLAUDE_CODE_ENTRYPOINT $timeout_cmd {$timeout_mins}m fish -c "$cli_cmd -p "(string escape -- $full_prompt) </dev/null >$outfile 2>&1 &
         else
-            env -u CLAUDECODE -u CLAUDE_CODE_ENTRYPOINT fish -c "$cli_cmd -p "(string escape -- $full_prompt) >$outfile 2>&1 &
+            env -u CLAUDECODE -u CLAUDE_CODE_ENTRYPOINT fish -c "$cli_cmd -p "(string escape -- $full_prompt) </dev/null >$outfile 2>&1 &
         end
         set -l claude_pid $last_pid
 
@@ -168,7 +168,7 @@ function ralphish --description "Ralph Wiggum Loop for Claude Code"
         end
 
         if test -n "$timeout_cmd"; and test $timeout_mins -gt 0; and test $claude_exit -eq 124
-            echo "["(date -u +"%Y-%m-%dT%H:%M:%SZ")"] Round $round — Timed out after {$timeout_mins}m"
+            echo "["(date -u +"%Y-%m-%dT%H:%M:%SZ")"] Round $round — Timed out after "$timeout_mins"m"
             set prompt_suffix ". Previous run timed out after $timeout_mins minutes."
         end
 
