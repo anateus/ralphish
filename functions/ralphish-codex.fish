@@ -111,12 +111,16 @@ function ralphish-codex --description "Ralph Wiggum Loop for Codex"
         set prompt_suffix ""
 
         touch "$ts_marker"
-        set -l outfile (mktemp)
+        set -l logfile (mktemp)
+        set -l last_message_file (mktemp)
+        set -l escaped_last_message_file (string escape -- $last_message_file)
+        set -l escaped_prompt (string escape -- $full_prompt)
+        set -l round_cmd "$cli_cmd -o $escaped_last_message_file $escaped_prompt"
 
         if test -n "$timeout_cmd"; and test $timeout_mins -gt 0
-            $timeout_cmd {$timeout_mins}m fish -c "$cli_cmd "(string escape -- $full_prompt) </dev/null >$outfile 2>&1 &
+            $timeout_cmd {$timeout_mins}m fish -c "$round_cmd" </dev/null >$logfile 2>&1 &
         else
-            fish -c "$cli_cmd "(string escape -- $full_prompt) </dev/null >$outfile 2>&1 &
+            fish -c "$round_cmd" </dev/null >$logfile 2>&1 &
         end
         set -l codex_pid $last_pid
 
@@ -143,10 +147,16 @@ function ralphish-codex --description "Ralph Wiggum Loop for Codex"
             set prompt_suffix ". Previous run timed out after $timeout_mins minutes."
         end
 
-        set -l output (string collect < $outfile)
-        rm -f $outfile
-
-        echo $output | bat --language=md --style=plain --paging=never
+        set -l output (string collect < $logfile)
+        if test -s "$last_message_file"
+            begin
+                printf 'Full log of this run is at %s\n\n' "$logfile"
+                cat "$last_message_file"
+            end | bat --language=md --style=plain --paging=never
+        else
+            printf '%s\n' "$output" | bat --language=md --style=plain --paging=never
+        end
+        rm -f $last_message_file
         echo
 
         if string match -q '*<PROMPT>DONE</PROMPT>*' -- $output

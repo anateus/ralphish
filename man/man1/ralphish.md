@@ -11,9 +11,14 @@ ralphish(1) -- loop a CLI command until DONE
 runs a CLI command with the given prompt until the output contains
 `<PROMPT>DONE</PROMPT>`, indicating the task is complete.
 
-Each iteration (round) runs `<command> -p <prompt>` and checks the output.
-If the round times out, the next round's prompt is appended with a note about
-the timeout. Output from each round is displayed via `bat`.
+Each iteration (round) runs the configured command with the prompt, captures a
+full stdout/stderr log, and checks that log for completion. If the round times
+out, the next round's prompt is appended with a note about the timeout. Output
+from each round is displayed via `bat`.
+
+For the Codex backend, `ralphish-codex` also passes `-o <tempfile>` to `codex
+exec` and displays Codex's saved last message by default, prefixed with the
+absolute path to the full log file for that round.
 
 Designed for use with Claude Code skills that maintain their own state machines
 and output `<PROMPT>DONE</PROMPT>` when they reach a terminal state.
@@ -28,8 +33,10 @@ continues as long as this file exists.
     `timeout` to be available on the system.
 
   * `-c`, `--cmd` <command>:
-    The CLI command to run each round. Defaults to
-    `claude --dangerously-skip-permissions`.
+    The CLI command to run each round. Defaults to the active backend's
+    command (`codex exec --dangerously-bypass-approvals-and-sandbox` for
+    `ralphish-codex`, `claude --dangerously-skip-permissions` for
+    `ralphish-claude`).
 
 ## STOPPING
 
@@ -60,7 +67,7 @@ Use a custom CLI command:
 
 ## DEPENDENCIES
 
-  * `claude` -- Anthropic's Claude Code CLI (default command)
+  * `codex` and/or `claude` -- depending on the selected backend
   * `bat` -- used to render output
   * `gtimeout` or `timeout` -- optional, for per-round timeouts
 
@@ -70,4 +77,4 @@ Michael Katsevman
 
 ## SEE ALSO
 
-fish(1), claude(1)
+fish(1), claude(1), codex(1)

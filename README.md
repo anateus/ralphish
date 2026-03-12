@@ -4,6 +4,8 @@ Minimal [Ralph Wiggum Loop](https://ghuntley.com/loop/) for [fish shell](https:/
 
 Loop an agent CLI until the task is done. `ralphish` dispatches to either Claude (`ralphish-claude`) or Codex (`ralphish-codex`) based on the fish variable `_ralphish_type`.
 
+For the Codex backend, each round keeps the full stdout/stderr log in a temp file and shows the saved last assistant message by default, prefixed with the absolute path to that full log.
+
 I use this with skills that maintain their own state machines and output `<PROMPT>DONE</PROMPT>` when they reach a terminal state. If you don't have a skill like that, ask Claude to write you one.
 
 ## Installation
@@ -30,6 +32,8 @@ ralphish -c "codex exec --model gpt-5-codex --dangerously-bypass-approvals-and-s
 
 - `codex` -> runs `ralphish-codex` (default command: `codex exec --dangerously-bypass-approvals-and-sandbox`)
 - `claude` -> runs `ralphish-claude` (default command: `claude --dangerously-skip-permissions`)
+
+`ralphish-codex` appends `-o <tempfile>` to the configured Codex command each round so it can display Codex's last message instead of the entire stdout stream.
 
 Set it manually anytime:
 

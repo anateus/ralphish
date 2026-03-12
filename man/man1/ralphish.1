@@ -13,7 +13,10 @@
 \fBralphish\fR is a minimal Ralph Wiggum Loop for fish shell\. It repeatedly runs a CLI command with the given prompt until the output contains \fB<PROMPT>DONE</PROMPT>\fR, indicating the task is complete\.
 .
 .P
-Each iteration (round) runs \fB<command> \-p <prompt>\fR and checks the output\. If the round times out, the next round\'s prompt is appended with a note about the timeout\. Output from each round is displayed via \fBbat\fR\.
+Each iteration (round) runs the configured command with the prompt, captures a full stdout/stderr log, and checks that log for completion\. If the round times out, the next round\'s prompt is appended with a note about the timeout\. Output from each round is displayed via \fBbat\fR\.
+.
+.P
+For the Codex backend, \fBralphish\-codex\fR also passes \fB\-o <tempfile>\fR to \fBcodex exec\fR and displays Codex\'s saved last message by default, prefixed with the absolute path to the full log file for that round\.
 .
 .P
 Designed for use with Claude Code skills that maintain their own state machines and output \fB<PROMPT>DONE</PROMPT>\fR when they reach a terminal state\.
@@ -29,7 +32,7 @@ Per\-round timeout in minutes\. Defaults to 30\. Requires \fBgtimeout\fR or \fBt
 .
 .TP
 \fB\-c\fR, \fB\-\-cmd\fR \fIcommand\fR
-The CLI command to run each round\. Defaults to \fBclaude \-\-dangerously\-skip\-permissions\fR\.
+The CLI command to run each round\. Defaults to the active backend\'s command (\fBcodex exec \-\-dangerously\-bypass\-approvals\-and\-sandbox\fR for \fBralphish\-codex\fR, \fBclaude \-\-dangerously\-skip\-permissions\fR for \fBralphish\-claude\fR)\.
 .
 .SH "STOPPING"
 .
@@ -108,7 +111,7 @@ ralphish \-c "claude \-\-model opus" "Fix the flaky test"
 .SH "DEPENDENCIES"
 .
 .IP "\(bu" 4
-\fBclaude\fR \-\- Anthropic\'s Claude Code CLI (default command)
+\fBcodex\fR and/or \fBclaude\fR \-\- depending on the selected backend
 .
 .IP "\(bu" 4
 \fBbat\fR \-\- used to render output
@@ -122,4 +125,4 @@ ralphish \-c "claude \-\-model opus" "Fix the flaky test"
 Michael Katsevman
 .
 .SH "SEE ALSO"
-fish(1), claude(1)
+fish(1), claude(1), codex(1)
