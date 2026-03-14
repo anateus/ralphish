@@ -7,7 +7,7 @@ function ralphish-codex --description "Ralph Wiggum Loop for Codex"
         return 1
     end
 
-    set -l timeout_mins 30
+    set -l timeout_mins 50
     if set -q _flag_timeout
         set timeout_mins $_flag_timeout
     end

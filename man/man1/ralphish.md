@@ -29,7 +29,7 @@ continues as long as this file exists.
 ## OPTIONS
 
   * `-t`, `--timeout` <minutes>:
-    Per-round timeout in minutes. Defaults to 30. Requires `gtimeout` or
+    Per-round timeout in minutes. Defaults to 50. Requires `gtimeout` or
     `timeout` to be available on the system.
 
   * `-c`, `--cmd` <command>:
@@ -53,7 +53,7 @@ Both the pidfile path and PID are printed at startup.
 
 ## EXAMPLES
 
-Run with default 30-minute timeout:
+Run with default 50-minute timeout:
 
     ralphish "Fix the failing tests in src/"
 

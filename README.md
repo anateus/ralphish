@@ -45,7 +45,7 @@ set -U _ralphish_type codex
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `-t`, `--timeout` | Per-round timeout in minutes | `30` |
+| `-t`, `--timeout` | Per-round timeout in minutes | `50` |
 | `-c`, `--cmd` | CLI command to run each round | backend-specific (`codex exec --dangerously-bypass-approvals-and-sandbox` or `claude --dangerously-skip-permissions`) |
 
 ### Stopping
