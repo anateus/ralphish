@@ -12,7 +12,7 @@ function ralphish-claude --description "Ralph Wiggum Loop for Claude Code"
         set timeout_mins $_flag_timeout
     end
 
-    set -l cli_cmd "claude --dangerously-skip-permissions"
+    set -l cli_cmd "claude --dangerously-skip-permissions --verbose --output-format stream-json"
     if set -q _flag_cmd
         set cli_cmd $_flag_cmd
     end
@@ -157,10 +157,13 @@ function ralphish-claude --description "Ralph Wiggum Loop for Claude Code"
 
         if test -z "$session_id"
             echo "["(date -u +"%Y-%m-%dT%H:%M:%SZ")"] Error: unable to detect session after round $round"
-            set -l output (string collect < $outfile)
-            if test -n "$output"
+            set -l err_result (jq -r 'select(.type == "result") | .result // ""' < $outfile 2>/dev/null | string collect)
+            if test -z "$err_result"
+                set err_result (string collect < $outfile)
+            end
+            if test -n "$err_result"
                 echo "Claude output:"
-                echo $output | bat --language=md --style=plain --paging=never
+                echo $err_result | bat --language=md --style=plain --paging=never
             end
             rm -f $pidfile $ts_marker $status_file $outfile
             functions -e _ralphish_detect_session _ralphish_update_status
@@ -172,13 +175,18 @@ function ralphish-claude --description "Ralph Wiggum Loop for Claude Code"
             set prompt_suffix ". Previous run timed out after $timeout_mins minutes."
         end
 
-        set -l output (string collect < $outfile)
+        set -l result_text (jq -r 'select(.type == "result") | .result // ""' < $outfile 2>/dev/null | string collect)
+        set -l assistant_text (jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "text") | .text' < $outfile 2>/dev/null | string collect)
         rm -f $outfile
 
-        echo $output | bat --language=md --style=plain --paging=never
+        if test -n "$assistant_text"
+            echo $assistant_text | bat --language=md --style=plain --paging=never
+        else if test -n "$result_text"
+            echo $result_text | bat --language=md --style=plain --paging=never
+        end
         echo
 
-        if string match -q '*<PROMPT>DONE</PROMPT>*' -- $output
+        if string match -q '*<PROMPT>DONE</PROMPT>*' -- $result_text
             echo "["(date -u +"%Y-%m-%dT%H:%M:%SZ")"] Done."
             rm -f $pidfile $ts_marker
             functions -e _ralphish_detect_session _ralphish_update_status
